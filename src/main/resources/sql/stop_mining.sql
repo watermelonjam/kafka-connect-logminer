@@ -1,0 +1,3 @@
+begin
+	SYS.DBMS_LOGMNR.END_LOGMNR;
+end;
