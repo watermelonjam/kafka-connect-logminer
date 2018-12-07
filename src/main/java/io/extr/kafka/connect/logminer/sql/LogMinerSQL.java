@@ -40,7 +40,7 @@ public abstract class LogMinerSQL {
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerSQL.class);
 
 	protected static final Charset SQL_FILE_ENCODING = Charset.forName("UTF8");
-	private static final String PROPERTIES_FILE = "sql.properties";
+	private static final String PROPERTIES_FILE = "sql.base.properties";
 
 	private static Map<Statement, String> STATEMENTS;
 
