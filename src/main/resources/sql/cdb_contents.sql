@@ -1,1 +1,36 @@
-SELECT thread#, scn, start_scn, commit_scn,timestamp, operation_code, operation,status, SEG_TYPE_NAME ,info,seg_owner, table_name, username, sql_redo ,row_id, csf, TABLE_SPACE, SESSION_INFO, RS_ID, RBASQN, RBABLK, SEQUENCE#, TX_NAME, SEG_NAME, SRC_CON_ID FROM  v$logmnr_contents  WHERE OPERATION_CODE in (1,2,3) and commit_scn>=? and 
+SELECT
+    THREAD#,
+    SCN,
+    START_SCN,
+    COMMIT_SCN,
+    TIMESTAMP,
+    OPERATION_CODE,
+    OPERATION,
+    STATUS,
+    SEG_TYPE_NAME,
+    INFO,
+    SEG_OWNER,
+    TABLE_NAME,
+    USERNAME,
+    SQL_REDO,
+    ROW_ID,
+    CSF,
+    TABLE_SPACE,
+    SESSION_INFO,
+    RS_ID,
+    RBASQN,
+    RBABLK,
+    SEQUENCE#,
+    TX_NAME,
+    SEG_NAME,
+    SRC_CON_ID
+FROM
+    V$LOGMNR_CONTENTS
+WHERE
+    OPERATION_CODE IN (
+        1,
+        2,
+        3
+    )
+    AND COMMIT_SCN >= ?
+        AND 

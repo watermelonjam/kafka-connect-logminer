@@ -1,14 +1,33 @@
-package io.x.kafka.connect.logminer.sql;
+/**
+  * Licensed to the Apache Software Foundation (ASF) under one or more
+  * contributor license agreements.  See the NOTICE file distributed with
+  * this work for additional information regarding copyright ownership.
+  * The ASF licenses this file to You under the Apache License, Version 2.0
+  * (the "License"); you may not use this file except in compliance with
+  * the License.  You may obtain a copy of the License at
+  *
+  * http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
+
+package io.extr.kafka.connect.logminer.sql;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +49,7 @@ public abstract class LogMinerSQL {
 		try {
 			initializeStatements(STATEMENTS, PROPERTIES_FILE);
 		} catch (Exception e) {
+			LOGGER.error("Cannot initialize log miner SQL", e);
 			throw new ExceptionInInitializerError(e);
 		}
 	}
@@ -41,7 +61,12 @@ public abstract class LogMinerSQL {
 		pointers.load(is);
 
 		for (String pointer : pointers.stringPropertyNames()) {
-			URI resourceURI = ClassLoader.getSystemResource(pointers.getProperty(pointer)).toURI();
+			String pointerLocation = pointers.getProperty(pointer);
+			URL resourceURL = ClassLoader.getSystemResource(pointerLocation);
+			if (resourceURL == null) {
+				throw new IllegalStateException(String.format("Cannot initialize SQL resource %s from file %s", pointer, pointerLocation));
+			}
+			URI resourceURI = resourceURL.toURI();
 			LOGGER.debug("{}: {}={}", pointersFile, pointer, resourceURI.toString());
 
 			Statement s = Statement.get(pointer);
@@ -52,7 +77,7 @@ public abstract class LogMinerSQL {
 	protected static String getStatementSQL(URI resourceURI) throws IOException {
 		String sql = null;
 		if (resourceURI.getScheme().equals("file")) {
-			final Path path = FileSystems.getDefault().getPath(resourceURI.getPath());
+			final Path path = Paths.get(resourceURI);
 			byte[] sqlBytes = Files.readAllBytes(path);
 			sql = new String(sqlBytes, SQL_FILE_ENCODING);
 		} else if (resourceURI.getScheme().equals("jar")) {
@@ -77,7 +102,7 @@ public abstract class LogMinerSQL {
 	}
 
 	public enum Statement {
-		START_MINING("start"), STOP_MINING("stop"), CONTENTS("contents"), DICTIONARY("dictionary");
+		START_MINING("start"), STOP_MINING("stop"), CONTENTS("contents"), DICTIONARY("dictionary"), CURRENT_SCN("current.scn"), LATEST_SCN("latest.scn");
 
 		private final String property;
 
@@ -99,6 +124,10 @@ public abstract class LogMinerSQL {
 				return CONTENTS;
 			case "dictionary":
 				return DICTIONARY;
+			case "current.scn":
+				return CURRENT_SCN;
+			case "latest.scn":
+				return LATEST_SCN;
 			default:
 				throw new IllegalArgumentException("Invalid SQL statement property name \"" + property + "\"");
 			}
