@@ -24,25 +24,11 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.ConfigDef.Width;
 
+// TODO: Add recommenders, good value to be had from dynamic dbconn based ones
 public class LogMinerSourceConnectorConfig extends AbstractConfig {
-	public static final String LOGMINER_GROUP = "LogMiner";
-	public static final String CONNECTOR_GROUP = "Connector";
 	public static final String DATABASE_GROUP = "Database";
-
-	public static final String LOGMINER_DIALECT_CONFIG = "dialect";
-	private static final String LOGMINER_DIALECT_DISPLAY = "Dialect";
-	public static final String LOGMINER_DIALECT_DEFAULT = "single";
-	private static final String LOGMINER_DIALECT_DOC = "The LogMiner dialect to use when mining the database.  Possible "
-			+ "values include \"single\" and \"multitenant\"";
-
-	public static final String TOPIC_CONFIG = "topic";
-	private static final String TOPIC_DISPLAY = "Topic";
-	public static final String TOPIC_DEFAULT = "db.events";
-	private static final String TOPIC_DOC = "";
-
-	public static final String TOPIC_PREFIX_CONFIG = "topic.prefix";
-	private static final String TOPIC_PREFIX_DISPLAY = "Topic prefix";
-	private static final String TOPIC_PREFIX_DOC = "";
+	public static final String CONNECTOR_GROUP = "Connector";
+	public static final String LOGMINER_GROUP = "LogMiner";
 
 	public static final String CONNECTION_URL_CONFIG = "connection.url";
 	private static final String CONNECTION_URL_DISPLAY = "JDBC URL";
@@ -56,6 +42,13 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 	private static final String CONNECTION_PASSWORD_DISPLAY = "JDBC password";
 	private static final String CONNECTION_PASSWORD_DOC = "JDBC connection password";
 
+	public static final String DB_FETCH_SIZE_CONFIG = "db.fetch.size";
+	private static final String DB_FETCH_SIZE_DISPLAY = "Database fetch size";
+	public static final long DB_FETCH_SIZE_DEFAULT = 100L;
+	private static final String DB_FETCH_SIZE_DOC = "Maximum number of rows to include in a single batch "
+			+ "when polling for new data. This setting can be used to limit the amount of data buffered "
+			+ "internally in the connector.";
+
 	public static final String WHITELIST_CONFIG = "table.whitelist";
 	private static final String WHITELIST_DISPLAY = "Table whitelist";
 	public static final String WHITELIST_DEFAULT = "";
@@ -68,26 +61,40 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 	private static final String BLACKLIST_DOC = "List of tables to exclude from mining. If specified,"
 			+ " table.whitelist may not be set.";
 
+	public static final String TOPIC_CONFIG = "topic";
+	private static final String TOPIC_DISPLAY = "Topic";
+	public static final String TOPIC_DEFAULT = "db.events";
+	private static final String TOPIC_DOC = "The name of the Kafka topic to publish data to.";
+
+	public static final String TOPIC_PREFIX_CONFIG = "topic.prefix";
+	private static final String TOPIC_PREFIX_DISPLAY = "Topic prefix";
+	private static final String TOPIC_PREFIX_DOC = "Prefix to prepend to table names to generate the "
+			+ "name of the Kafka topic to publish data to.";
+
 	public static final String PARSE_DML_DATA_CONFIG = "parse.dml.data";
 	private static final String PARSE_DML_DATA_DISPLAY = "Parse DML data";
 	public static final boolean PARSE_DML_DATA_DEFAULT = false;
 	private static final String PARSE_DML_DATA_DOC = "Parse DML data into structures";
 
-	public static final String DB_FETCH_SIZE_CONFIG = "db.fetch.size";
-	private static final String DB_FETCH_SIZE_DISPLAY = "Database fetch size";
-	public static final long DB_FETCH_SIZE_DEFAULT = 100L;
-	private static final String DB_FETCH_SIZE_DOC = "Maximum number of rows to include in a single batch "
-			+ "when polling for new data. This setting can be used to limit the amount of data buffered "
-			+ "internally in the connector.";
+	public static final String SEEK_SCN_CONFIG = "scn";
+	private static final String SEEK_SCN_DISPLAY = "System change number (SCN)";
+	public static final String SEEK_SCN_DEFAULT = "next";
+	private static final String SEEK_SCN_DOC = "The SCN at which to begin reading.  Oracle records "
+			+ "each database change using this unique sequence number.  LogMiner has access to a range "
+			+ "of SCNs that depend on the database configuration (e.g., redo log size).  The connector "
+			+ "can be configured to begin reading at a specific SCN (a Long value), the \"min\" (earliest) "
+			+ "available SCN, the \"max\" (latest) available SCN, or the \"next\" available SCN to continue "
+			+ "reading.  In the event that the requested SCN is not available, the connector will "
+			+ "begin at: \"min\" if \"next\" is selected; \"min\" if a specific SCN is selected "
+			+ "that is less than the earliest available; \"max\" if a specific SCN is selected "
+			+ "that is greater than the latest available.  In a"
+			+ "ll cases the connector will log its choices.";
 
-	public static final String RESET_OFFSET_CONFIG = "reset.offset";
-	private static final String RESET_OFFSET_DISPLAY = "Reset offset";
-	public static final boolean RESET_OFFSET_DEFAULT = false;
-	private static final String RESET_OFFSET_DOC = "Reset offset";
-
-	public static final String START_SCN_CONFIG = "start.scn";
-	private static final String START_SCN_DISPLAY = "Start system change number";
-	private static final String START_SCN_DOC = "Start scn";
+	public static final String LOGMINER_DIALECT_CONFIG = "dialect";
+	private static final String LOGMINER_DIALECT_DISPLAY = "Dialect";
+	public static final String LOGMINER_DIALECT_DEFAULT = "single";
+	private static final String LOGMINER_DIALECT_DOC = "The LogMiner dialect to use when mining the database.  Possible "
+			+ "values include \"single\" and \"multitenant\"";
 
 	public static final String DB_NAME_ALIAS_CONFIG = "db.name.alias";
 	private static final String DB_NAME_ALIAS_DISPLAY = "Database name alias";
@@ -98,17 +105,113 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 	public static ConfigDef initConfig() {
 		ConfigDef cfg = new ConfigDef();
 
-		int orderInGroup = 0;
-		cfg.define(LOGMINER_DIALECT_CONFIG, Type.STRING, LOGMINER_DIALECT_DEFAULT, Importance.HIGH,
-				LOGMINER_DIALECT_DOC, LOGMINER_GROUP, orderInGroup++, Width.MEDIUM, LOGMINER_DIALECT_DISPLAY);
-		initConnectorConfig(cfg);
+		initDatabaseConfigGroup(cfg);
+		initConnectorConfigGroup(cfg);
+		initLogMinerConfigGroup(cfg);
+
 		return cfg;
 	}
 
-	private static void initConnectorConfig(ConfigDef cfg) {
+	private static void initDatabaseConfigGroup(ConfigDef cfg) {
 		int orderInGroup = 0;
-		cfg.define(TOPIC_CONFIG, Type.STRING, TOPIC_DEFAULT, Importance.HIGH, TOPIC_DOC, CONNECTOR_GROUP,
-				orderInGroup++, Width.SHORT, TOPIC_DISPLAY);
+		cfg.define(CONNECTION_URL_CONFIG,
+				Type.STRING,
+				Importance.HIGH,
+				CONNECTION_URL_DOC,
+				DATABASE_GROUP,
+				orderInGroup++,
+				Width.LONG,
+				CONNECTION_URL_DISPLAY)
+		.define(CONNECTION_USER_CONFIG,
+				Type.STRING,
+				Importance.HIGH,
+				CONNECTION_USER_DOC,
+				DATABASE_GROUP,
+				orderInGroup++,
+				Width.MEDIUM,
+				CONNECTION_USER_DISPLAY)
+		.define(CONNECTION_PASSWORD_CONFIG,
+				Type.STRING, 
+				Importance.HIGH,
+				CONNECTION_PASSWORD_DOC,
+				DATABASE_GROUP,
+				orderInGroup++,
+				Width.MEDIUM,
+				CONNECTION_PASSWORD_DISPLAY);
+	}
+	
+	private static void initConnectorConfigGroup(ConfigDef cfg) {
+		int orderInGroup = 0;
+		cfg.define(TOPIC_CONFIG,
+				Type.STRING,
+				TOPIC_DEFAULT,
+				Importance.HIGH,
+				TOPIC_DOC,
+				CONNECTOR_GROUP,
+				orderInGroup++,
+				Width.SHORT,
+				TOPIC_DISPLAY)
+		.define(TOPIC_PREFIX_CONFIG,
+				Type.STRING,
+				Importance.HIGH,
+				TOPIC_PREFIX_DOC,
+				CONNECTOR_GROUP,
+				orderInGroup++,
+				Width.MEDIUM,
+				TOPIC_PREFIX_DISPLAY)
+		.define(PARSE_DML_DATA_CONFIG,
+				Type.BOOLEAN,
+				Importance.MEDIUM,
+				PARSE_DML_DATA_DOC,
+				CONNECTOR_GROUP,
+				orderInGroup++,
+				Width.SHORT,
+				PARSE_DML_DATA_DISPLAY)
+		.define(DB_FETCH_SIZE_CONFIG,
+				Type.LONG,
+				Importance.HIGH,
+				DB_FETCH_SIZE_DOC,
+				DATABASE_GROUP,
+				orderInGroup++,
+				Width.SHORT,
+				DB_FETCH_SIZE_DISPLAY)
+		.define(WHITELIST_CONFIG,
+				Type.LIST,
+				Importance.MEDIUM,
+				WHITELIST_DOC,
+				DATABASE_GROUP,
+				orderInGroup++,
+				Width.LONG,
+				WHITELIST_DISPLAY)
+		.define(BLACKLIST_CONFIG,
+				Type.LIST,
+				Importance.MEDIUM,
+				BLACKLIST_DOC,
+				DATABASE_GROUP,
+				orderInGroup++,
+				Width.LONG,
+				BLACKLIST_DISPLAY);
+	}
+	
+	private static void initLogMinerConfigGroup(ConfigDef cfg) {
+		int orderInGroup = 0;
+		cfg.define(LOGMINER_DIALECT_CONFIG,
+				Type.STRING,
+				LOGMINER_DIALECT_DEFAULT,
+				Importance.HIGH,
+				LOGMINER_DIALECT_DOC,
+				LOGMINER_GROUP,
+				orderInGroup++,
+				Width.SHORT,
+				LOGMINER_DIALECT_DISPLAY)
+		.define(SEEK_SCN_CONFIG, 
+				Type.LONG, 
+				Importance.LOW,
+				SEEK_SCN_DOC, 
+				LOGMINER_GROUP,
+				orderInGroup++,
+				Width.SHORT,
+				SEEK_SCN_DISPLAY);
 	}
 	
 	public LogMinerSourceConnectorConfig(Map<String, ?> props) {

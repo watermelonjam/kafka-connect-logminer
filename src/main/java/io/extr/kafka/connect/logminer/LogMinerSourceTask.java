@@ -24,6 +24,12 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Every instance manages a set of container/owner/table partitions
+ * 
+ * @author David Arnold
+ *
+ */
 public class LogMinerSourceTask extends SourceTask {
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerSourceTask.class);
 	

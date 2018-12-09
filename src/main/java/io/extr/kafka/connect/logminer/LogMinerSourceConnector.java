@@ -51,8 +51,7 @@ public class LogMinerSourceConnector extends SourceConnector {
 
 	@Override
 	public Class<? extends Task> taskClass() {
-		// TODO Auto-generated method stub
-		return null;
+		return LogMinerSourceTask.class;
 	}
 
 	@Override
@@ -64,13 +63,10 @@ public class LogMinerSourceConnector extends SourceConnector {
 	@Override
 	public void stop() {
 		LOGGER.info("Stopping LogMiner source connector");
-		// TODO Auto-generated method stub
-
 	}
 
 	@Override
 	public ConfigDef config() {
 		return LogMinerSourceConnectorConfig.CONFIG_DEF;
 	}
-
 }
