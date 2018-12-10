@@ -16,6 +16,8 @@
 
 package io.extr.kafka.connect.logminer;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
@@ -27,11 +29,14 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.extr.kafka.connect.logminer.sql.LogMinerSQL;
+
 public class LogMinerSourceConnector extends SourceConnector {
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerSourceConnector.class);
 	
 	private Map<String, String> configProperties;
 	private LogMinerSourceConnectorConfig config;
+	private LogMinerProvider provider;
 	
 	@Override
 	public String version() {
@@ -47,6 +52,17 @@ public class LogMinerSourceConnector extends SourceConnector {
 		} catch (ConfigException e) {
 			throw new ConnectException("Cannot start connector, configuration error", e);
 		}
+		
+		try {
+			provider = new LogMinerProvider(config);
+			Connection connection = provider.getConnection();
+			LogMinerSQL sql = provider.getSQL(connection);
+		} catch (SQLException e) {
+			throw new ConnectException("Cannot start connector, SQL error", e);
+		}
+		
+		// TODO: parse white/black lists and validate selections
+		// TODO: create monitorthread and start it
 	}
 
 	@Override

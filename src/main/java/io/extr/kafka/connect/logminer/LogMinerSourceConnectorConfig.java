@@ -131,7 +131,7 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 				Width.MEDIUM,
 				CONNECTION_USER_DISPLAY)
 		.define(CONNECTION_PASSWORD_CONFIG,
-				Type.STRING, 
+				Type.PASSWORD, 
 				Importance.HIGH,
 				CONNECTION_PASSWORD_DOC,
 				DATABASE_GROUP,
@@ -205,7 +205,7 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 				Width.SHORT,
 				LOGMINER_DIALECT_DISPLAY)
 		.define(SEEK_SCN_CONFIG, 
-				Type.LONG, 
+				Type.STRING, 
 				Importance.LOW,
 				SEEK_SCN_DOC, 
 				LOGMINER_GROUP,
