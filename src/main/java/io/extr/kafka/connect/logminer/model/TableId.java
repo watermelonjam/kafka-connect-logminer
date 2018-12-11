@@ -16,6 +16,7 @@
 
 package io.extr.kafka.connect.logminer.model;
 
+import java.util.Comparator;
 import java.util.Objects;
 
 public class TableId implements Comparable<TableId> {
@@ -24,11 +25,18 @@ public class TableId implements Comparable<TableId> {
 	private final String tableName;
 	private final int hash;
 
-	public TableId(String containerName, String schemaName, String tableName) {
+	private Long eventCount;
+
+	public TableId(String containerName, String schemaName, String tableName, Long eventCount) {
 		this.containerName = containerName == null || containerName.isEmpty() ? null : containerName;
 		this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
 		this.tableName = tableName == null || tableName.isEmpty() ? null : tableName;
 		this.hash = Objects.hash(containerName, schemaName, tableName);
+		this.eventCount = eventCount == null ? 0L : eventCount;
+	}
+
+	public TableId(String containerName, String schemaName, String tableName) {
+		this(containerName, schemaName, tableName, null);
 	}
 
 	public String getContainerName() {
@@ -41,6 +49,14 @@ public class TableId implements Comparable<TableId> {
 
 	public String getTableName() {
 		return tableName;
+	}
+
+	public Long getEventCount() {
+		return eventCount;
+	}
+
+	public void setEventCount(Long eventCount) {
+		this.eventCount = eventCount;
 	}
 
 	@Override
@@ -64,7 +80,7 @@ public class TableId implements Comparable<TableId> {
 	@Override
 	public String toString() {
 		return "TableId [containerName=" + containerName + ", schemaName=" + schemaName + ", tableName=" + tableName
-				+ "]";
+				+ ", eventCount=" + eventCount + "]";
 	}
 
 	@Override
@@ -103,5 +119,13 @@ public class TableId implements Comparable<TableId> {
 			}
 		}
 		return 0;
+	}
+
+	public static class TableIdComparator implements Comparator<TableId> {
+		@Override
+		public int compare(TableId t1, TableId t2) {
+			return t1.getEventCount().compareTo(t2.getEventCount());
+		}
+
 	}
 }
