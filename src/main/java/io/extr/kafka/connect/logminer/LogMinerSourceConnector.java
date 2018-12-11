@@ -18,8 +18,11 @@ package io.extr.kafka.connect.logminer;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
@@ -29,15 +32,17 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.confluent.connect.jdbc.source.JdbcSourceConnectorConfig;
 import io.extr.kafka.connect.logminer.sql.LogMinerSQL;
 
 public class LogMinerSourceConnector extends SourceConnector {
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerSourceConnector.class);
-	
+
 	private Map<String, String> configProperties;
 	private LogMinerSourceConnectorConfig config;
 	private LogMinerProvider provider;
-	
+	private TableMonitorThread tableMonitorThread;
+
 	@Override
 	public String version() {
 		return Version.getVersion();
@@ -52,7 +57,7 @@ public class LogMinerSourceConnector extends SourceConnector {
 		} catch (ConfigException e) {
 			throw new ConnectException("Cannot start connector, configuration error", e);
 		}
-		
+
 		try {
 			provider = new LogMinerProvider(config);
 			Connection connection = provider.getConnection();
@@ -60,9 +65,20 @@ public class LogMinerSourceConnector extends SourceConnector {
 		} catch (SQLException e) {
 			throw new ConnectException("Cannot start connector, SQL error", e);
 		}
-		
-		// TODO: parse white/black lists and validate selections
-		// TODO: create monitorthread and start it
+
+		long tablePollMs = config.getLong(LogMinerSourceConnectorConfig.TODO);
+		List<String> whitelist = config.getList(LogMinerSourceConnectorConfig.WHITELIST_CONFIG);
+		Set<String> whitelistSet = whitelist.isEmpty() ? null : new HashSet<>(whitelist);
+		List<String> blacklist = config.getList(LogMinerSourceConnectorConfig.BLACKLIST_CONFIG);
+		Set<String> blacklistSet = blacklist.isEmpty() ? null : new HashSet<>(blacklist);
+
+		if (whitelistSet != null && blacklistSet != null) {
+			throw new ConnectException(LogMinerSourceConnectorConfig.WHITELIST_CONFIG + " and "
+					+ LogMinerSourceConnectorConfig.BLACKLIST_CONFIG + " are " + "exclusive.");
+		}
+
+		tableMonitorThread = new TableMonitorThread(provider, context, 10000L, whitelistSet, blacklistSet);
+		tableMonitorThread.start();
 	}
 
 	@Override
