@@ -1,5 +1,5 @@
 /**
- * Copyright 2015 Confluent Inc.
+ * Copyright 2018 David Arnold
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,21 @@
 
 package io.extr.kafka.connect.logminer;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
 import io.extr.kafka.connect.logminer.model.TableId;
 
 /**
@@ -111,7 +111,9 @@ public class TableMonitorThread extends Thread {
 	private synchronized boolean updateTables() {
 		final List<TableId> tables;
 		try {
-			tables = provider.getTables();
+			Connection connection = provider.getConnection();
+			LogMinerDialect dialect = provider.getDialect(connection);
+			tables = dialect.getTables(connection);
 			lOGGER.debug("Got the following tables: " + Arrays.toString(tables.toArray()));
 		} catch (SQLException e) {
 			lOGGER.error("Error while trying to get updated table list, ignoring and waiting for next table poll"
@@ -123,17 +125,13 @@ public class TableMonitorThread extends Thread {
 		final List<TableId> filteredTables = new ArrayList<>(tables.size());
 		if (whitelist != null) {
 			for (TableId table : tables) {
-				String fqn1 = dialect.expressionBuilder().append(table, false).toString();
-				String fqn2 = dialect.expressionBuilder().append(table, true).toString();
-				if (whitelist.contains(fqn1) || whitelist.contains(fqn2) || whitelist.contains(table.tableName())) {
+				if (table.matches(whitelist)) {
 					filteredTables.add(table);
 				}
 			}
 		} else if (blacklist != null) {
 			for (TableId table : tables) {
-				String fqn1 = dialect.expressionBuilder().append(table, false).toString();
-				String fqn2 = dialect.expressionBuilder().append(table, true).toString();
-				if (!(blacklist.contains(fqn1) || blacklist.contains(fqn2) || blacklist.contains(table.tableName()))) {
+				if (!table.matches(blacklist)) {
 					filteredTables.add(table);
 				}
 			}
@@ -142,19 +140,12 @@ public class TableMonitorThread extends Thread {
 		}
 
 		if (!filteredTables.equals(this.tables)) {
-			lOGGER.info("After filtering the tables are: {}",
-					dialect.expressionBuilder().appendList().delimitedBy(",").of(filteredTables));
-			Map<String, List<TableId>> duplicates = filteredTables.stream()
-					.collect(Collectors.groupingBy(TableId::tableName)).entrySet().stream()
-					.filter(entry -> entry.getValue().size() > 1)
-					.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-			this.duplicates = duplicates;
+			lOGGER.info("After filtering the tables are: {}", filteredTables);
 			List<TableId> previousTables = this.tables;
 			this.tables = filteredTables;
 			notifyAll();
 			// Only return true if the table list wasn't previously null, i.e. if this was
-			// not the
-			// first table lookup
+			// not the first table lookup
 			return previousTables != null;
 		}
 

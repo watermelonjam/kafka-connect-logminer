@@ -9,12 +9,14 @@ import java.nio.file.Paths;
 import org.junit.Assert;
 import org.junit.Test;
 
-import io.extr.kafka.connect.logminer.sql.LogMinerSQL.Statement;
-import io.extr.kafka.connect.logminer.sql.LogMinerSQLFactory.Strategy;
+import io.extr.kafka.connect.logminer.dialect.BaseLogMinerDialect;
+import io.extr.kafka.connect.logminer.dialect.LogMinerDialect.Statement;
+import io.extr.kafka.connect.logminer.dialect.LogMinerSQLFactory;
+import io.extr.kafka.connect.logminer.dialect.LogMinerSQLFactory.Strategy;
 
 public class LogMinerSQLTest {
-	private static final LogMinerSQL MSQL = LogMinerSQLFactory.getInstance(Strategy.MULTITENANT);
-	private static final LogMinerSQL SSQL = LogMinerSQLFactory.getInstance(Strategy.SINGLE_INSTANCE);
+	private static final BaseLogMinerDialect MSQL = LogMinerSQLFactory.getInstance(Strategy.MULTITENANT);
+	private static final BaseLogMinerDialect SSQL = LogMinerSQLFactory.getInstance(Strategy.SINGLE_INSTANCE);
 
 	@Test
 	public void testMultitenantSQL() throws Exception {
@@ -30,6 +32,8 @@ public class LogMinerSQLTest {
 		Assert.assertEquals("SQL does not match", getFileContents("sql/current_scn.sql"), statement);
 		statement = MSQL.getStatement(Statement.LATEST_SCN);
 		Assert.assertEquals("SQL does not match", getFileContents("sql/latest_scn.sql"), statement);
+		statement = MSQL.getStatement(Statement.TABLES);
+		Assert.assertEquals("SQL does not match", getFileContents("sql/cdb_tables.sql"), statement);
 	}
 
 	@Test
@@ -46,6 +50,8 @@ public class LogMinerSQLTest {
 		Assert.assertEquals("SQL does not match", getFileContents("sql/current_scn.sql"), statement);
 		statement = SSQL.getStatement(Statement.LATEST_SCN);
 		Assert.assertEquals("SQL does not match", getFileContents("sql/latest_scn.sql"), statement);
+		statement = SSQL.getStatement(Statement.TABLES);
+		Assert.assertEquals("SQL does not match", getFileContents("sql/tables.sql"), statement);
 	}
 
 	private String getFileContents(String filePath) throws IOException, URISyntaxException {

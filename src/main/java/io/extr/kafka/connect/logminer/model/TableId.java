@@ -16,10 +16,12 @@
 
 package io.extr.kafka.connect.logminer.model;
 
-import java.util.Comparator;
 import java.util.Objects;
+import java.util.Set;
 
 public class TableId implements Comparable<TableId> {
+	private static final String DELIMITER = ".";
+	
 	private final String containerName;
 	private final String schemaName;
 	private final String tableName;
@@ -51,6 +53,13 @@ public class TableId implements Comparable<TableId> {
 		return tableName;
 	}
 
+	public String getQName() {
+		if (containerName == null) {
+			return schemaName + DELIMITER + tableName;
+		}
+		return containerName + DELIMITER + schemaName + DELIMITER + tableName;
+	}
+	
 	public Long getEventCount() {
 		return eventCount;
 	}
@@ -84,48 +93,15 @@ public class TableId implements Comparable<TableId> {
 	}
 
 	@Override
-	public int compareTo(TableId o) {
-		if (o == this) {
-			return 0;
-		}
-		int diff = this.tableName.compareTo(o.tableName);
-		if (diff != 0) {
-			return diff;
-		}
-		if (this.schemaName == null) {
-			if (o.schemaName != null) {
-				return -1;
-			}
-		} else {
-			if (o.schemaName == null) {
-				return 1;
-			}
-			diff = this.schemaName.compareTo(o.schemaName);
-			if (diff != 0) {
-				return diff;
-			}
-		}
-		if (this.containerName == null) {
-			if (o.containerName != null) {
-				return -1;
-			}
-		} else {
-			if (o.containerName == null) {
-				return 1;
-			}
-			diff = this.containerName.compareTo(o.containerName);
-			if (diff != 0) {
-				return diff;
-			}
-		}
-		return 0;
+	public int compareTo(TableId t) {
+		return eventCount.compareTo(t.getEventCount());
 	}
-
-	public static class TableIdComparator implements Comparator<TableId> {
-		@Override
-		public int compare(TableId t1, TableId t2) {
-			return t1.getEventCount().compareTo(t2.getEventCount());
+	
+	public boolean matches(Set<String> regexes) {
+		for (String regex : regexes) {
+			if (getQName().matches(regex))
+				return true;
 		}
-
+		return false;
 	}
 }

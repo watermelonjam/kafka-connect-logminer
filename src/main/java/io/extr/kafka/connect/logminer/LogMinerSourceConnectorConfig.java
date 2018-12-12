@@ -61,6 +61,13 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 	private static final String BLACKLIST_DOC = "List of tables to exclude from mining. If specified,"
 			+ " table.whitelist may not be set.";
 
+	public static final String TABLE_POLL_INTERVAL_CONFIG = "table.poll.interval.ms";
+	private static final String TABLE_POLL_INTERVAL_DOC = "Frequency in ms to poll for new or removed tables, which may result in updated task "
+			+ "configurations to start polling for data in added tables or stop polling for data in "
+			+ "removed tables.";
+	public static final long TABLE_POLL_INTERVAL_DEFAULT = 60 * 1000;
+	private static final String TABLE_POLL_INTERVAL_DISPLAY = "Metadata Change Monitoring Interval (ms)";
+
 	public static final String TOPIC_CONFIG = "topic";
 	private static final String TOPIC_DISPLAY = "Topic";
 	public static final String TOPIC_DEFAULT = "db.events";
@@ -87,8 +94,7 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 			+ "reading.  In the event that the requested SCN is not available, the connector will "
 			+ "begin at: \"min\" if \"next\" is selected; \"min\" if a specific SCN is selected "
 			+ "that is less than the earliest available; \"max\" if a specific SCN is selected "
-			+ "that is greater than the latest available.  In a"
-			+ "ll cases the connector will log its choices.";
+			+ "that is greater than the latest available.  In a" + "ll cases the connector will log its choices.";
 
 	public static final String LOGMINER_DIALECT_CONFIG = "dialect";
 	private static final String LOGMINER_DIALECT_DISPLAY = "Dialect";
@@ -100,9 +106,9 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 	private static final String DB_NAME_ALIAS_DISPLAY = "Database name alias";
 	private static final String DB_NAME_ALIAS_DOC = "Database alias";
 
-	public static final ConfigDef CONFIG_DEF = initConfig();
+	public static final ConfigDef CONFIG_DEF = baseConfigDef();
 
-	public static ConfigDef initConfig() {
+	public static ConfigDef baseConfigDef() {
 		ConfigDef cfg = new ConfigDef();
 
 		initDatabaseConfigGroup(cfg);
@@ -114,107 +120,46 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 
 	private static void initDatabaseConfigGroup(ConfigDef cfg) {
 		int orderInGroup = 0;
-		cfg.define(CONNECTION_URL_CONFIG,
-				Type.STRING,
-				Importance.HIGH,
-				CONNECTION_URL_DOC,
-				DATABASE_GROUP,
-				orderInGroup++,
-				Width.LONG,
-				CONNECTION_URL_DISPLAY)
-		.define(CONNECTION_USER_CONFIG,
-				Type.STRING,
-				Importance.HIGH,
-				CONNECTION_USER_DOC,
-				DATABASE_GROUP,
-				orderInGroup++,
-				Width.MEDIUM,
-				CONNECTION_USER_DISPLAY)
-		.define(CONNECTION_PASSWORD_CONFIG,
-				Type.PASSWORD, 
-				Importance.HIGH,
-				CONNECTION_PASSWORD_DOC,
-				DATABASE_GROUP,
-				orderInGroup++,
-				Width.MEDIUM,
-				CONNECTION_PASSWORD_DISPLAY);
+		cfg.define(CONNECTION_URL_CONFIG, Type.STRING, Importance.HIGH, CONNECTION_URL_DOC, DATABASE_GROUP,
+				orderInGroup++, Width.LONG, CONNECTION_URL_DISPLAY)
+				.define(CONNECTION_USER_CONFIG, Type.STRING, Importance.HIGH, CONNECTION_USER_DOC, DATABASE_GROUP,
+						orderInGroup++, Width.MEDIUM, CONNECTION_USER_DISPLAY)
+				.define(CONNECTION_PASSWORD_CONFIG, Type.PASSWORD, Importance.HIGH, CONNECTION_PASSWORD_DOC,
+						DATABASE_GROUP, orderInGroup++, Width.MEDIUM, CONNECTION_PASSWORD_DISPLAY);
 	}
-	
+
 	private static void initConnectorConfigGroup(ConfigDef cfg) {
 		int orderInGroup = 0;
-		cfg.define(TOPIC_CONFIG,
-				Type.STRING,
-				TOPIC_DEFAULT,
-				Importance.HIGH,
-				TOPIC_DOC,
-				CONNECTOR_GROUP,
-				orderInGroup++,
-				Width.SHORT,
-				TOPIC_DISPLAY)
-		.define(TOPIC_PREFIX_CONFIG,
-				Type.STRING,
-				Importance.HIGH,
-				TOPIC_PREFIX_DOC,
-				CONNECTOR_GROUP,
-				orderInGroup++,
-				Width.MEDIUM,
-				TOPIC_PREFIX_DISPLAY)
-		.define(PARSE_DML_DATA_CONFIG,
-				Type.BOOLEAN,
-				Importance.MEDIUM,
-				PARSE_DML_DATA_DOC,
-				CONNECTOR_GROUP,
-				orderInGroup++,
-				Width.SHORT,
-				PARSE_DML_DATA_DISPLAY)
-		.define(DB_FETCH_SIZE_CONFIG,
-				Type.LONG,
-				Importance.HIGH,
-				DB_FETCH_SIZE_DOC,
-				DATABASE_GROUP,
-				orderInGroup++,
-				Width.SHORT,
-				DB_FETCH_SIZE_DISPLAY)
-		.define(WHITELIST_CONFIG,
-				Type.LIST,
-				Importance.MEDIUM,
-				WHITELIST_DOC,
-				DATABASE_GROUP,
-				orderInGroup++,
-				Width.LONG,
-				WHITELIST_DISPLAY)
-		.define(BLACKLIST_CONFIG,
-				Type.LIST,
-				Importance.MEDIUM,
-				BLACKLIST_DOC,
-				DATABASE_GROUP,
-				orderInGroup++,
-				Width.LONG,
-				BLACKLIST_DISPLAY);
+		cfg.define(TOPIC_CONFIG, Type.STRING, TOPIC_DEFAULT, Importance.HIGH, TOPIC_DOC, CONNECTOR_GROUP,
+				orderInGroup++, Width.SHORT, TOPIC_DISPLAY)
+				.define(TOPIC_PREFIX_CONFIG, Type.STRING, Importance.HIGH, TOPIC_PREFIX_DOC, CONNECTOR_GROUP,
+						orderInGroup++, Width.MEDIUM, TOPIC_PREFIX_DISPLAY)
+				.define(PARSE_DML_DATA_CONFIG, Type.BOOLEAN, Importance.MEDIUM, PARSE_DML_DATA_DOC, CONNECTOR_GROUP,
+						orderInGroup++, Width.SHORT, PARSE_DML_DATA_DISPLAY)
+				.define(DB_FETCH_SIZE_CONFIG, Type.LONG, Importance.HIGH, DB_FETCH_SIZE_DOC, DATABASE_GROUP,
+						orderInGroup++, Width.SHORT, DB_FETCH_SIZE_DISPLAY)
+				.define(WHITELIST_CONFIG, Type.LIST, Importance.MEDIUM, WHITELIST_DOC, DATABASE_GROUP, orderInGroup++,
+						Width.LONG, WHITELIST_DISPLAY)
+				.define(BLACKLIST_CONFIG, Type.LIST, Importance.MEDIUM, BLACKLIST_DOC, DATABASE_GROUP, orderInGroup++,
+						Width.LONG, BLACKLIST_DISPLAY)
+				.define(TABLE_POLL_INTERVAL_CONFIG, Type.LONG, TABLE_POLL_INTERVAL_DEFAULT, Importance.MEDIUM,
+						TABLE_POLL_INTERVAL_DOC, CONNECTOR_GROUP, orderInGroup++, Width.SHORT,
+						TABLE_POLL_INTERVAL_DISPLAY);
 	}
-	
+
 	private static void initLogMinerConfigGroup(ConfigDef cfg) {
 		int orderInGroup = 0;
-		cfg.define(LOGMINER_DIALECT_CONFIG,
-				Type.STRING,
-				LOGMINER_DIALECT_DEFAULT,
-				Importance.HIGH,
-				LOGMINER_DIALECT_DOC,
-				LOGMINER_GROUP,
-				orderInGroup++,
-				Width.SHORT,
-				LOGMINER_DIALECT_DISPLAY)
-		.define(SEEK_SCN_CONFIG, 
-				Type.STRING, 
-				Importance.LOW,
-				SEEK_SCN_DOC, 
-				LOGMINER_GROUP,
-				orderInGroup++,
-				Width.SHORT,
-				SEEK_SCN_DISPLAY);
+		cfg.define(LOGMINER_DIALECT_CONFIG, Type.STRING, LOGMINER_DIALECT_DEFAULT, Importance.HIGH,
+				LOGMINER_DIALECT_DOC, LOGMINER_GROUP, orderInGroup++, Width.SHORT, LOGMINER_DIALECT_DISPLAY)
+				.define(SEEK_SCN_CONFIG, Type.STRING, Importance.LOW, SEEK_SCN_DOC, LOGMINER_GROUP, orderInGroup++,
+						Width.SHORT, SEEK_SCN_DISPLAY);
 	}
-	
+
 	public LogMinerSourceConnectorConfig(Map<String, ?> props) {
 		super(CONFIG_DEF, props);
+	}
+
+	public LogMinerSourceConnectorConfig(ConfigDef configDef, Map<String, ?> props) {
+		super(configDef, props);
 	}
 }
