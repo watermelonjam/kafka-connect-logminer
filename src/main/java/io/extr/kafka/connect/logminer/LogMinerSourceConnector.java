@@ -36,7 +36,7 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.extr.kafka.connect.logminer.dialect.BaseLogMinerDialect;
+import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
 import io.extr.kafka.connect.logminer.model.TableId;
 
 public class LogMinerSourceConnector extends SourceConnector {
@@ -65,12 +65,12 @@ public class LogMinerSourceConnector extends SourceConnector {
 		try {
 			provider = new LogMinerProvider(config);
 			Connection connection = provider.getConnection();
-			BaseLogMinerDialect sql = provider.getDialect(connection);
+			LogMinerDialect dialect = provider.getDialect(connection);
 		} catch (SQLException e) {
 			throw new ConnectException("Cannot start connector, SQL error", e);
 		}
 
-		// TODO: add config option for hysteretic poll interval
+		// TODO: add config options for hysteretic poll interval
 		long tablePollInterval = config.getLong(LogMinerSourceConnectorConfig.TABLE_POLL_INTERVAL_CONFIG);
 		List<String> whitelist = config.getList(LogMinerSourceConnectorConfig.WHITELIST_CONFIG);
 		Set<String> whitelistSet = whitelist.isEmpty() ? null : new HashSet<>(whitelist);

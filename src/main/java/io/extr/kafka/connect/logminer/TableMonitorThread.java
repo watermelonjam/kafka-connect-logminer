@@ -139,6 +139,8 @@ public class TableMonitorThread extends Thread {
 			filteredTables.addAll(tables);
 		}
 
+		// TODO: enrich filteredTables with event stats from our own topic
+		
 		if (!filteredTables.equals(this.tables)) {
 			lOGGER.info("After filtering the tables are: {}", filteredTables);
 			List<TableId> previousTables = this.tables;

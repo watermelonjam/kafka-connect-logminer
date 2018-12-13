@@ -75,4 +75,6 @@ public class LogMinerSourceConnectorConstants {
 	public static final String OPERATION_INSERT = "INSERT";
 	public static final String OPERATION_UPDATE = "UPDATE";
 	public static final String OPERATION_DELETE = "DELETE";
+	
+	public static final String TABLE_NAME_KEY = "Table";
 }

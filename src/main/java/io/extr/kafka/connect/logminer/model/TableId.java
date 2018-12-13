@@ -37,6 +37,19 @@ public class TableId implements Comparable<TableId> {
 		this.eventCount = eventCount == null ? 0L : eventCount;
 	}
 
+	public static TableId fromFQN(String tableFQN) {
+		String[] nameElements = tableFQN.split(".");
+		switch(nameElements.length) {
+			case 3:
+				return new TableId(nameElements[0], nameElements[1], nameElements[2]);
+			case 2:
+				return new TableId(null, nameElements[0], nameElements[1]);
+			case 1:
+				return new TableId(null, null, nameElements[0]);
+		}
+		return null;
+	}
+	
 	public TableId(String containerName, String schemaName, String tableName) {
 		this(containerName, schemaName, tableName, null);
 	}
