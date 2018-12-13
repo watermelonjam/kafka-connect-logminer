@@ -25,9 +25,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,33 +35,14 @@ import io.extr.kafka.connect.logminer.LogMinerSourceConnectorConfig;
 import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
 import io.extr.kafka.connect.logminer.model.TableId;
 
-public class DatabaseTest {
-	private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseTest.class);
-
-	private static String url;
-	private static String user;
-	private static String password;
+public class NewDatabaseIT {
+	private static final Logger LOGGER = LoggerFactory.getLogger(NewDatabaseIT.class);
 
 	private Map<String, String> config;
 	
-	@BeforeClass
-	public static void init() throws Exception {
-		url = System.getProperty(LogMinerSourceConnectorConfig.CONNECTION_URL_CONFIG);
-		user = System.getProperty(LogMinerSourceConnectorConfig.CONNECTION_USER_CONFIG);
-		password = System.getProperty(LogMinerSourceConnectorConfig.CONNECTION_PASSWORD_CONFIG);
-
-	}
-
 	@Before
-	public void canTryConnect() throws Exception {
-		Assume.assumeTrue(url != null);
-		Assume.assumeTrue(user != null);
-		Assume.assumeTrue(password != null);
-
+	public void initConfig() throws Exception {
 		config = getConfigProperties();
-		config.put(LogMinerSourceConnectorConfig.CONNECTION_URL_CONFIG, url);
-		config.put(LogMinerSourceConnectorConfig.CONNECTION_USER_CONFIG, user);
-		config.put(LogMinerSourceConnectorConfig.CONNECTION_PASSWORD_CONFIG, password);
 	}
 
 	@Test
