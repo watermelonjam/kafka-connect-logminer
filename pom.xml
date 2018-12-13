@@ -146,12 +146,5 @@
 			<version>1.2.3</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>com.oracle</groupId>
-			<artifactId>ojdbc8</artifactId>
-			<version>12.2.0.1.0</version>
-			<scope>test</scope>
-			<optional>true</optional>
-		</dependency>
 	</dependencies>
 </project>
