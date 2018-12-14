@@ -123,7 +123,9 @@
 				<groupId>io.fabric8</groupId>
 				<artifactId>docker-maven-plugin</artifactId>
 				<configuration>
+					<vebose>true</vebose>
 					<registry>${docker.registry}</registry>
+					<portPropertyFile>docker-ports.properties</portPropertyFile>
 					<images>
 						<image>
 							<name>${docker.database.image}</name>
@@ -132,24 +134,29 @@
 								<env>
 									<ORACLE_SID>KCLDB</ORACLE_SID>
 									<ORACLE_PDB>KCLPDB</ORACLE_PDB>
-									<ORACLE_PWD>KCLPASS</ORACLE_PWD>
+									<ORACLE_PWD>KCLpass123</ORACLE_PWD>
 									<ORACLE_CHARACTERSET>AL32UTF8</ORACLE_CHARACTERSET>
 								</env>
 								<ports>
-									<port>it-database.port:1521</port>
-									<port>it-enterprisemanager.port:5500</port>
+									<port>+kcl-integration-db.ip:kcl-integration-db.port:1521</port>
+									<port>+kcl-integration-em.ip:kcl-integration-em.port:5500</port>
 								</ports>
 								<volumes>
 									<bind>
-										<volume>src/test/resources/sql/startup:/opt/oracle/scripts/startup</volume>
-										<volume>src/test/resources/sql/setup:/opt/oracle/scripts/setup</volume>
+										<volume>${project.build.testOutputDirectory}/sql/startup:/opt/oracle/scripts/startup:ro</volume>
+										<volume>${project.build.testOutputDirectory}/sql/setup:/opt/oracle/scripts/setup:ro</volume>
 									</bind>
 								</volumes>
 								<wait>
-									<healthy />
+									<log>(?s)DATABASE IS READY TO USE!</log>
 									<!-- Oracle on docker is not a speed demon -->
 									<time>3600000</time>
 								</wait>
+								<log>
+									<prefix>%a: </prefix>
+									<date>DEFAULT</date>
+									<color>BLUE</color>
+								</log>
 							</run>
 						</image>
 					</images>
@@ -178,6 +185,12 @@
 				<filtering>true</filtering>
 			</resource>
 		</resources>
+		<testResources>
+			<testResource>
+				<directory>src/test/resources</directory>
+				<filtering>true</filtering>
+			</testResource>
+		</testResources>
 	</build>
 
 	<dependencies>
@@ -211,5 +224,13 @@
 			<version>1.2.3</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.oracle</groupId>
+			<artifactId>ojdbc8</artifactId>
+			<version>12.2.0.1.0</version>
+			<scope>test</scope>
+			<optional>true</optional>
+		</dependency>
+
 	</dependencies>
 </project>
