@@ -55,6 +55,7 @@ public class LogMinerProvider implements AutoCloseable {
 				initializeConnection();
 			}
 		} catch (SQLException e) {
+			LOGGER.warn("Connection initialization failure", e);
 			throw new ConnectException(e);
 		}
 		return connection;
@@ -124,6 +125,7 @@ public class LogMinerProvider implements AutoCloseable {
 		Properties properties = new Properties();
 		properties.setProperty("user", user);
 		properties.setProperty("password", password);
+		LOGGER.debug("Initializing connection to {}", jdbcURL);
 		connection = DriverManager.getConnection(jdbcURL, properties);
 
 		DatabaseMetaData md = connection.getMetaData();

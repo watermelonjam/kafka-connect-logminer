@@ -16,7 +16,6 @@
 
 package io.extr.kafka.connect.logminer.sql;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.util.HashMap;
@@ -35,14 +34,29 @@ import io.extr.kafka.connect.logminer.LogMinerSourceConnectorConfig;
 import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
 import io.extr.kafka.connect.logminer.model.TableId;
 
-public class NewDatabaseIT {
-	private static final Logger LOGGER = LoggerFactory.getLogger(NewDatabaseIT.class);
+public class LogMinerProviderIT {
+	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerProviderIT.class);
+
+	private static final String JDBC_URL_TEMPLATE = "jdbc:oracle:thin:@%s:%s/KCLDB";
 
 	private Map<String, String> config;
-	
+
 	@Before
 	public void initConfig() throws Exception {
-		config = getConfigProperties();
+		config = new HashMap<String, String>();
+		InputStream is = ClassLoader.getSystemResourceAsStream("logminer.source.properties");
+		Properties p = new Properties();
+		p.load(is);
+		for (String key : p.stringPropertyNames()) {
+			String value = p.getProperty(key);
+			config.put(key, value);
+		}
+
+		// Override with system properties from Maven failsafe plugin
+		String dbHost = System.getProperty("it-database.host");
+		String dbPort = System.getProperty("it-database.port");
+		String jdbcURL = String.format(JDBC_URL_TEMPLATE, dbHost, dbPort);
+		config.put(LogMinerSourceConnectorConfig.CONNECTION_URL_CONFIG, jdbcURL);
 	}
 
 	@Test
@@ -54,17 +68,5 @@ public class NewDatabaseIT {
 			List<TableId> tables = dialect.getTables(connection);
 			LOGGER.info("Retrieved list of tables: {}", tables);
 		}
-	}
-
-	private Map<String, String> getConfigProperties() throws IOException {
-		Map<String, String> props = new HashMap<String, String>();
-		InputStream is = ClassLoader.getSystemResourceAsStream("logminer.source.properties");
-		Properties p = new Properties();
-		p.load(is);
-		for (String key : p.stringPropertyNames()) {
-			String value = p.getProperty(key);
-			props.put(key, value);
-		}
-		return props;
 	}
 }
