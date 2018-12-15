@@ -51,7 +51,6 @@
 		<project.build.resourceEncoding>UTF-8</project.build.resourceEncoding>
 		<scala.version>2.12</scala.version>
 		<kafka.version>2.1.0</kafka.version>
-		<docker.database.image>oracle/database:18.3.0-ee</docker.database.image>
 	</properties>
 
 	<profiles>
@@ -83,6 +82,9 @@
 			<id>integration-test</id>
 			<activation>
 				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>docker.database.image</name>
+				</property>
 			</activation>
 			<dependencies>
 				<dependency>
@@ -163,9 +165,10 @@
 					</execution>
 				</executions>
 				<configuration>
-					<environmentVariables>
-						<it-database.port>${it-database.port}</it-database.port>
-					</environmentVariables>
+					<systemPropertyVariables>
+						<it-database.host>${kcl-integration-db.ip}</it-database.host>
+						<it-database.port>${kcl-integration-db.port}</it-database.port>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -175,6 +178,7 @@
 					<vebose>true</vebose>
 					<registry>${docker.registry}</registry>
 					<portPropertyFile>docker-ports.properties</portPropertyFile>
+<!-- 					<removeVolumes>true</removeVolumes> -->
 					<images>
 						<image>
 							<name>${docker.database.image}</name>
