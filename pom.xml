@@ -90,7 +90,6 @@
 					<artifactId>ojdbc8</artifactId>
 					<version>12.2.0.1.0</version>
 					<scope>test</scope>
-					<optional>true</optional>
 				</dependency>
 			</dependencies>
 		</profile>
