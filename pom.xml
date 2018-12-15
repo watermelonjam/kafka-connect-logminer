@@ -180,7 +180,6 @@
 				<configuration>
 					<vebose>true</vebose>
 					<registry>${docker.registry}</registry>
-					<portPropertyFile>docker-ports.properties</portPropertyFile>
 					<!-- <removeVolumes>true</removeVolumes> -->
 					<images>
 						<image>
@@ -232,6 +231,9 @@
 						<goals>
 							<goal>stop</goal>
 						</goals>
+<!-- 						<configuration> -->
+<!-- 							<keepRunning>true</keepRunning> -->
+<!-- 						</configuration> -->
 					</execution>
 				</executions>
 			</plugin>
