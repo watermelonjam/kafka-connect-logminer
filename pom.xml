@@ -59,6 +59,9 @@
 			<activation>
 				<activeByDefault>true</activeByDefault>
 			</activation>
+			<properties>
+				<docker.database.image>none</docker.database.image>
+			</properties>
 			<build>
 				<plugins>
 					<plugin>
