@@ -85,7 +85,7 @@ public class LogMinerProvider implements AutoCloseable {
 	public boolean isMultitenant(Connection connection) throws SQLException {
 		boolean multitenant = false;
 		try (PreparedStatement p = connection
-				.prepareStatement("SELECT COUNT(*) FROM ALL_VIEWS WHERE VIEW_NAME = 'CDB_TAB_COLS'")) {
+				.prepareStatement("SELECT COUNT(*) FROM DBA_VIEWS WHERE VIEW_NAME = 'CDB_TAB_COLS'")) {
 			ResultSet rs = p.executeQuery();
 			while (rs.next()) {
 				if (rs.getInt(1) == 1) {

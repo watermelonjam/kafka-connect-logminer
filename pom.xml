@@ -59,6 +59,9 @@
 			<activation>
 				<activeByDefault>true</activeByDefault>
 			</activation>
+			<properties>
+				<docker.database.image>none</docker.database.image>
+			</properties>
 			<build>
 				<plugins>
 					<plugin>
@@ -176,8 +179,7 @@
 				<configuration>
 					<vebose>true</vebose>
 					<registry>${docker.registry}</registry>
-					<portPropertyFile>docker-ports.properties</portPropertyFile>
-<!-- 					<removeVolumes>true</removeVolumes> -->
+					<!-- <removeVolumes>true</removeVolumes> -->
 					<images>
 						<image>
 							<name>${docker.database.image}</name>
@@ -197,6 +199,7 @@
 									<bind>
 										<volume>${project.build.testOutputDirectory}/sql/startup:/opt/oracle/scripts/startup:ro</volume>
 										<volume>${project.build.testOutputDirectory}/sql/setup:/opt/oracle/scripts/setup:ro</volume>
+										<volume>${project.basedir}/tmp:/opt/oracle/oradata</volume>
 									</bind>
 								</volumes>
 								<wait>
@@ -227,6 +230,9 @@
 						<goals>
 							<goal>stop</goal>
 						</goals>
+<!-- 						<configuration> -->
+<!-- 							<keepRunning>true</keepRunning> -->
+<!-- 						</configuration> -->
 					</execution>
 				</executions>
 			</plugin>
