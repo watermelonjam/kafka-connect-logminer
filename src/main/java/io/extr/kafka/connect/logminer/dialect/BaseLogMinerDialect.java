@@ -39,7 +39,7 @@ public abstract class BaseLogMinerDialect implements LogMinerDialect {
 	private static final Logger LOGGER = LoggerFactory.getLogger(BaseLogMinerDialect.class);
 
 	protected static final Charset SQL_FILE_ENCODING = Charset.forName("UTF8");
-	private static final String PROPERTIES_FILE = "sql-base.properties";
+	private static final String PROPERTIES_FILE = "/sql-base.properties";
 
 	private static Map<Statement, String> STATEMENTS;
 
@@ -56,7 +56,7 @@ public abstract class BaseLogMinerDialect implements LogMinerDialect {
 	protected static void initializeStatements(Map<Statement, String> statements, String pointersFile)
 			throws IOException, URISyntaxException {
 		Properties pointers = new Properties();
-		InputStream is = ClassLoader.getSystemResourceAsStream(pointersFile);
+		InputStream is = BaseLogMinerDialect.class.getResourceAsStream(pointersFile);
 		if (is == null) {
 			throw new IOException("Cannot find statement SQL file " + pointersFile);
 		}
@@ -64,7 +64,7 @@ public abstract class BaseLogMinerDialect implements LogMinerDialect {
 
 		for (String pointer : pointers.stringPropertyNames()) {
 			String pointerLocation = pointers.getProperty(pointer);
-			URL resourceURL = ClassLoader.getSystemResource(pointerLocation);
+			URL resourceURL = BaseLogMinerDialect.class.getResource(pointerLocation);
 			if (resourceURL == null) {
 				throw new IllegalStateException(String.format("Cannot initialize SQL resource %s from file %s", pointer, pointerLocation));
 			}

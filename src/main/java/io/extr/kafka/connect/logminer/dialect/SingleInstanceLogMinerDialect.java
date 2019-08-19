@@ -34,7 +34,7 @@ import io.extr.kafka.connect.logminer.model.TableId;
 public class SingleInstanceLogMinerDialect extends BaseLogMinerDialect {
 	private static final Logger LOGGER = LoggerFactory.getLogger(SingleInstanceLogMinerDialect.class);
 
-	private static final String PROPERTIES_FILE = "sql-single.properties";
+	private static final String PROPERTIES_FILE = "/sql-single.properties";
 
 	private static Map<Statement, String> STATEMENTS;
 

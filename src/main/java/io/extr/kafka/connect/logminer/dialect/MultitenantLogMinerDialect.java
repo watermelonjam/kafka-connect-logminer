@@ -34,7 +34,7 @@ import io.extr.kafka.connect.logminer.model.TableId;
 public class MultitenantLogMinerDialect extends BaseLogMinerDialect {
 	private static final Logger LOGGER = LoggerFactory.getLogger(MultitenantLogMinerDialect.class);
 
-	private static final String PROPERTIES_FILE = "sql-multitenant.properties";
+	private static final String PROPERTIES_FILE = "/sql-multitenant.properties";
 
 	private static Map<Statement, String> STATEMENTS;
 
