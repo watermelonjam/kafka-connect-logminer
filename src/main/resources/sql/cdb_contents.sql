@@ -41,7 +41,8 @@ SELECT
     CSF,
     INFO,
     STATUS,
-    SRC_CON_ID
+    SRC_CON_ID,
+    SRC_CON_NAME
 FROM
     V$LOGMNR_CONTENTS
 WHERE
@@ -50,5 +51,4 @@ WHERE
         2,
         3
     )
-    AND COMMIT_SCN >= ?
-        AND 
+    AND  

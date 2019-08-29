@@ -15,6 +15,18 @@
  **/
 
 SELECT
-    MAX(CURRENT_SCN) CURRENT_SCN
+    MIN(FIRST_CHANGE#) FIRST_CHANGE#
 FROM
-    GV$DATABASE
+    (
+        SELECT
+            FIRST_CHANGE#
+        FROM
+            V$LOG
+        UNION
+        SELECT
+            FIRST_CHANGE#
+        FROM
+            V$ARCHIVED_LOG
+        WHERE
+            STANDBY_DEST = 'NO'
+    )

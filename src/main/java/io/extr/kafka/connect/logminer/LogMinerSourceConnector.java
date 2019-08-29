@@ -16,8 +16,6 @@
 
 package io.extr.kafka.connect.logminer;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,16 +34,14 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
-import io.extr.kafka.connect.logminer.model.TableId;
+import io.extr.kafka.connect.logminer.model.Table;
 
 public class LogMinerSourceConnector extends SourceConnector {
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerSourceConnector.class);
 
 	private Map<String, String> configProperties;
 	private LogMinerSourceConnectorConfig config;
-	private LogMinerProvider provider;
-	private TableMonitorThread tableMonitorThread;
+	private DictionaryMonitorThread tableMonitorThread;
 
 	@Override
 	public String version() {
@@ -62,14 +58,6 @@ public class LogMinerSourceConnector extends SourceConnector {
 			throw new ConnectException("Cannot start connector, configuration error", e);
 		}
 
-		try {
-			provider = new LogMinerProvider(config);
-			Connection connection = provider.getConnection();
-			LogMinerDialect dialect = provider.getDialect(connection);
-		} catch (SQLException e) {
-			throw new ConnectException("Cannot start connector, SQL error", e);
-		}
-
 		// TODO: add config options for hysteretic poll interval
 		long tablePollInterval = config.getLong(LogMinerSourceConnectorConfig.TABLE_POLL_INTERVAL_CONFIG);
 		List<String> whitelist = config.getList(LogMinerSourceConnectorConfig.WHITELIST_CONFIG);
@@ -77,13 +65,21 @@ public class LogMinerSourceConnector extends SourceConnector {
 		List<String> blacklist = config.getList(LogMinerSourceConnectorConfig.BLACKLIST_CONFIG);
 		Set<String> blacklistSet = blacklist.isEmpty() ? null : new HashSet<>(blacklist);
 
-		if (whitelistSet != null && blacklistSet != null) {
-			throw new ConnectException(LogMinerSourceConnectorConfig.WHITELIST_CONFIG + " and "
-					+ LogMinerSourceConnectorConfig.BLACKLIST_CONFIG + " are " + "exclusive.");
+		LogMinerSession session = null;
+		try {
+			if (whitelistSet != null && blacklistSet != null) {
+				throw new ConnectException(LogMinerSourceConnectorConfig.WHITELIST_CONFIG + " and "
+						+ LogMinerSourceConnectorConfig.BLACKLIST_CONFIG + " are " + "exclusive.");
+			}
+			session = new LogMinerSession(config);
+			tableMonitorThread = new DictionaryMonitorThread(session, context, tablePollInterval, whitelistSet,
+					blacklistSet);
+			tableMonitorThread.start();
+		} catch (Exception e) {
+			if (session != null) {
+				session.close();
+			}
 		}
-
-		tableMonitorThread = new TableMonitorThread(provider, context, tablePollInterval, whitelistSet, blacklistSet);
-		tableMonitorThread.start();
 	}
 
 	@Override
@@ -93,18 +89,19 @@ public class LogMinerSourceConnector extends SourceConnector {
 
 	@Override
 	public List<Map<String, String>> taskConfigs(int maxTasks) {
-		List<TableId> currentTables = tableMonitorThread.tables();
-		int numGroups = Math.min(currentTables.size(), maxTasks);
-		List<List<TableId>> tablesGrouped = distributePartitions(currentTables, numGroups);
+		List<Table> tables = tableMonitorThread.tables();
+		int numGroups = Math.min(tables.size(), maxTasks);
+		List<List<Table>> tableGroups = groupTables(tables, numGroups);
 
-		List<Map<String, String>> taskConfigs = new ArrayList<>(tablesGrouped.size());
-		for (List<TableId> taskTables : tablesGrouped) {
+		List<Map<String, String>> taskConfigs = new ArrayList<>(tableGroups.size());
+		for (List<Table> tableGroup : tableGroups) {
 			Map<String, String> taskProps = new HashMap<>(configProperties);
-			String tablesConfig = taskTables.stream().map(TableId::getQName).collect(Collectors.joining(","));
+			String tablesConfig = tableGroup.stream().map(Table::getQName).collect(Collectors.joining(","));
 			taskProps.put(LogMinerSourceTaskConfig.TABLES_CONFIG, tablesConfig);
 			taskConfigs.add(taskProps);
 		}
-		LOGGER.trace("Task configs with query: {}, tables: {}", taskConfigs, currentTables.toArray());
+
+		LOGGER.debug("{} tasks configured for {} tables", tableGroups.size(), tables.size());
 		return taskConfigs;
 	}
 
@@ -125,12 +122,10 @@ public class LogMinerSourceConnector extends SourceConnector {
 	 * round-robin distributed according to their natural order, e.g. a performance
 	 * related statistic.
 	 *
-	 * @param elements
-	 *            list of elements to partition
-	 * @param numGroups
-	 *            the number of output groups to generate.
+	 * @param elements  list of elements to partition
+	 * @param numGroups the number of output groups to generate.
 	 */
-	public static <T extends Comparable<T>> List<List<T>> distributePartitions(List<T> elements, int groups) {
+	public static <T extends Comparable<T>> List<List<T>> groupTables(List<T> elements, int groups) {
 		List<T> sortedElements = new ArrayList<T>(elements);
 		Collections.sort(sortedElements);
 
@@ -144,5 +139,4 @@ public class LogMinerSourceConnector extends SourceConnector {
 
 		return result;
 	}
-
 }

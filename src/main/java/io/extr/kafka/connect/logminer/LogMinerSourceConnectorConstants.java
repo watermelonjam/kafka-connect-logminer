@@ -16,6 +16,8 @@
 
 package io.extr.kafka.connect.logminer;
 
+import org.apache.kafka.connect.data.Schema;
+
 public class LogMinerSourceConnectorConstants {
 	public static final String FIELD_SCN = "SCN";
 	public static final String FIELD_START_SCN = "START_SCN";
@@ -44,7 +46,10 @@ public class LogMinerSourceConnectorConstants {
 	public static final String FIELD_INFO = "INFO";
 	public static final String FIELD_STATUS = "STATUS";
 	public static final String FIELD_SRC_CON_ID = "SRC_CON_ID";
-
+	public static final String FIELD_SRC_CON_NAME = "SRC_CON_NAME";
+	public static final String FIELD_DBID = "DBID";
+	public static final String FIELD_NAME = "NAME";
+	
 	public static final String FIELD_CON_ID = "CON_ID";
 	public static final String FIELD_OWNER = "OWNER";
 	public static final String FIELD_COLUMN_NAME = "COLUMN_NAME";
@@ -65,16 +70,23 @@ public class LogMinerSourceConnectorConstants {
 	public static final String TYPE_FLOAT = "FLOAT";
 
 	public static final String DML_ROW_SCHEMA_NAME = "DML_ROW";
-	public static final String FIELD_DATA_ROW = "data";
-	public static final String FIELD_BEFORE_DATA_ROW = "before";
+	public static final String ROW_SCHEMA_QUALIFIER = ".ROW";
+	public static final String EVENT_SCHEMA_QUALIFIER = ".EVENT";
+	
+	public static final String FIELD_AFTER_DATA_ROW = "AFTER";
+	public static final String FIELD_BEFORE_DATA_ROW = "BEFORE";
 
+	public static final String TEMPORARY_TABLES_PATTERN = "temporary table";
+	
 	public static final String NULL_FIELD = "NULL";
-	public static final String DOT = ".";
-	public static final String COMMA = ",";
 
 	public static final String OPERATION_INSERT = "INSERT";
 	public static final String OPERATION_UPDATE = "UPDATE";
 	public static final String OPERATION_DELETE = "DELETE";
 	
 	public static final String TABLE_NAME_KEY = "Table";
+	
+    public static final Schema SCEMA_OPTIONAL_TIMESTAMP = org.apache.kafka.connect.data.Timestamp.builder().optional().build();
+    public static final Schema SCHEMA_TIMESTAMP = org.apache.kafka.connect.data.Timestamp.builder().build();
+
 }

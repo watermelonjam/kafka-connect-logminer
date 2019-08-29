@@ -16,27 +16,26 @@
 
 package io.extr.kafka.connect.logminer;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
-import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
+import io.extr.kafka.connect.logminer.model.LogMinerEvent;
+import io.extr.kafka.connect.logminer.model.Offset;
+import io.extr.kafka.connect.logminer.model.Table;
 
 /**
- * Every instance manages a set of container/owner/table partitions
+ * Every instance manages a set of [pluggable.]owner.table partitions
  * 
  * @author David Arnold
  *
@@ -45,9 +44,7 @@ public class LogMinerSourceTask extends SourceTask {
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogMinerSourceTask.class);
 
 	private LogMinerSourceTaskConfig config;
-	private LogMinerDialect dialect;
-	private LogMinerProvider provider;
-	private PriorityQueue<LogMinerContentsQuerier> queue = new PriorityQueue<LogMinerContentsQuerier>();
+	private LogMinerSession session;
 	private final AtomicBoolean running = new AtomicBoolean(false);
 
 	public LogMinerSourceTask() {
@@ -60,59 +57,59 @@ public class LogMinerSourceTask extends SourceTask {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting LogMiner source task");
-		try {
-			config = new LogMinerSourceTaskConfig(props);
-		} catch (ConfigException e) {
-			throw new ConnectException("Cannot start LogMinerSourceTask, configuration error", e);
-		}
+		LOGGER.info("Starting LogMinerSourceTask instance");
+		config = new LogMinerSourceTaskConfig(props);
 
 		try {
-			provider = new LogMinerProvider(config);
-			Connection connection = provider.getConnection();
-			dialect = provider.getDialect(connection);
-		} catch (SQLException e) {
-			throw new ConnectException("Cannot start LogMinerSourceTask, SQL error", e);
-		}
+			session = new LogMinerSession(config);
 
-		List<String> tables = config.getList(LogMinerSourceTaskConfig.TABLES_CONFIG);
-		List<Map<String, String>> partitions = new ArrayList<>(tables.size());
-		Map<String, Map<String, String>> partitionsByTableFqn = new HashMap<>();
-		for (String table : tables) {
-			Map<String, String> tablePartition = Collections
-					.singletonMap(LogMinerSourceConnectorConstants.TABLE_NAME_KEY, table);
-			partitions.add(tablePartition);
-			partitionsByTableFqn.put(table, tablePartition);
-		}
-		Map<Map<String, String>, Map<String, Object>> offsets = null;
-		offsets = context.offsetStorageReader().offsets(partitions);
-		LOGGER.trace("The partition offsets are {}", offsets);
+			List<String> tables = config.getList(LogMinerSourceTaskConfig.TABLES_CONFIG);
+			LOGGER.debug("Configured task tables: {}", tables);
+			List<Map<String, String>> partitions = new ArrayList<>(tables.size());
+			for (String table : tables) {
+				Map<String, String> tablePartition = Collections
+						.singletonMap(LogMinerSourceConnectorConstants.TABLE_NAME_KEY, table);
+				partitions.add(tablePartition);
+			}
 
-		String topicPrefix = config.getString(LogMinerSourceTaskConfig.TOPIC_PREFIX_CONFIG);
-		Map<String, Object> offset = null;
-		for (String table : tables) {
+			LOGGER.trace("Requesting offsets for partitions: {}", partitions);
+			Map<Map<String, String>, Map<String, Object>> offsets = context.offsetStorageReader().offsets(partitions);
+			LOGGER.trace("Returned offsets: {}", offsets);
+
+			Map<Table, Offset> state = new HashMap<>();
 			if (offsets != null) {
-				Map<String, String> partition = partitionsByTableFqn.get(table);
-				offset = offsets.get(partition);
-				if (offset != null) {
-					LOGGER.info("Found offset {} for partition {}", offsets, partition);
-					break;
+				for (Map<String, String> partition : offsets.keySet()) {
+					LOGGER.debug("Setting offset for returned partition {}", partition);
+					Table t = Table.fromQName(partition.get(LogMinerSourceConnectorConstants.TABLE_NAME_KEY));
+					Offset o = Offset.fromMap(offsets.get(partition));
+					state.put(t, o);
 				}
 			}
-			queue.add(new LogMinerContentsQuerier(dialect, table, topicPrefix, offset));
+			session.start(state);
+			running.set(true);
+			LOGGER.info("Started LogMinerSourceTask");
+		} catch (Exception e) {
+			throw new ConnectException("Cannot start LogMinerSourceTask instance", e);
 		}
-
-		running.set(true);
-		LOGGER.info("Started LogMiner source task");
 	}
 
 	@Override
 	public List<SourceRecord> poll() throws InterruptedException {
-		LOGGER.trace("{} Polling for new data");
+		LOGGER.debug("Polling for new events");
+		try {
+			List<LogMinerEvent> events = session.poll();
+			if (events == null)
+				return null;
 
-		while (running.get()) {
+			// TODO: either consider implementing topic prefix of some sort, or remove
+			// config option in favour of one topic partitioned by table
+			return events.stream()
+					.map(e -> new SourceRecord(e.getPartition(), e.getOffset(),
+							config.getString(LogMinerSourceTaskConfig.TOPIC_CONFIG), e.getSchema(), e.getStruct()))
+					.collect(Collectors.toList());
+		} catch (Exception e) {
+			throw new ConnectException("Error during LogMinerSourceTask poll", e);
 		}
-		return null;
 	}
 
 	@Override
@@ -120,5 +117,4 @@ public class LogMinerSourceTask extends SourceTask {
 		LOGGER.info("Stopping LogMiner source task");
 		running.set(false);
 	}
-
 }

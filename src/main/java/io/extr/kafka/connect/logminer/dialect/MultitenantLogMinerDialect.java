@@ -14,7 +14,6 @@
  * limitations under the License.
  **/
 
-
 package io.extr.kafka.connect.logminer.dialect;
 
 import java.sql.Connection;
@@ -29,7 +28,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.extr.kafka.connect.logminer.model.TableId;
+import io.extr.kafka.connect.logminer.model.Table;
 
 public class MultitenantLogMinerDialect extends BaseLogMinerDialect {
 	private static final Logger LOGGER = LoggerFactory.getLogger(MultitenantLogMinerDialect.class);
@@ -56,13 +55,14 @@ public class MultitenantLogMinerDialect extends BaseLogMinerDialect {
 	}
 
 	@Override
-	public List<TableId> getTables(Connection connection) throws SQLException {
-		List<TableId> tables = new ArrayList<TableId>();
+	public List<Table> getTables(Connection connection) throws SQLException {
+		List<Table> tables = new ArrayList<Table>();
 		String query = getStatement(Statement.TABLES);
+		LOGGER.trace("Executing multitenant visible tables query: {}", query);
 		try (PreparedStatement p = connection.prepareStatement(query)) {
 			ResultSet rs = p.executeQuery();
 			while (rs.next()) {
-				tables.add(new TableId(rs.getString(1), rs.getString(2), rs.getString(3)));
+				tables.add(new Table(rs.getString(1), rs.getString(2), rs.getString(3)));
 			}
 		}
 		return tables;

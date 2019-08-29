@@ -44,7 +44,7 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 
 	public static final String DB_FETCH_SIZE_CONFIG = "db.fetch.size";
 	private static final String DB_FETCH_SIZE_DISPLAY = "Database fetch size";
-	public static final long DB_FETCH_SIZE_DEFAULT = 100L;
+	public static final long DB_FETCH_SIZE_DEFAULT = 100;
 	private static final String DB_FETCH_SIZE_DOC = "Maximum number of rows to include in a single batch "
 			+ "when polling for new data. This setting can be used to limit the amount of data buffered "
 			+ "internally in the connector.";
@@ -85,26 +85,16 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 
 	public static final String SEEK_SCN_CONFIG = "scn";
 	private static final String SEEK_SCN_DISPLAY = "System change number (SCN)";
-	public static final String SEEK_SCN_DEFAULT = "next";
-	private static final String SEEK_SCN_DOC = "The SCN at which to begin reading.  Oracle records "
+	private static final String SEEK_SCN_DOC = "The SCN at which to begin reading.  Leave blank to let the "
+			+ " connector determine appropriate value using stored Kafka offsets.  Oracle records "
 			+ "each database change using this unique sequence number.  LogMiner has access to a range "
 			+ "of SCNs that depend on the database configuration (e.g., redo log size).  The connector "
 			+ "can be configured to begin reading at a specific SCN (a Long value), the \"min\" (earliest) "
-			+ "available SCN, the \"max\" (latest) available SCN, or the \"next\" available SCN to continue "
+			+ "available SCN, or the \"current\" (latest) available SCN to continue "
 			+ "reading.  In the event that the requested SCN is not available, the connector will "
-			+ "begin at: \"min\" if \"next\" is selected; \"min\" if a specific SCN is selected "
+			+ "begin at: \"min\" if a specific SCN is selected "
 			+ "that is less than the earliest available; \"max\" if a specific SCN is selected "
-			+ "that is greater than the latest available.  In a" + "ll cases the connector will log its choices.";
-
-	public static final String LOGMINER_DIALECT_CONFIG = "dialect";
-	private static final String LOGMINER_DIALECT_DISPLAY = "Dialect";
-	public static final String LOGMINER_DIALECT_DEFAULT = "single";
-	private static final String LOGMINER_DIALECT_DOC = "The LogMiner dialect to use when mining the database.  Possible "
-			+ "values include \"single\" and \"multitenant\"";
-
-	public static final String DB_NAME_ALIAS_CONFIG = "db.name.alias";
-	private static final String DB_NAME_ALIAS_DISPLAY = "Database name alias";
-	private static final String DB_NAME_ALIAS_DOC = "Database alias";
+			+ "that is greater than the latest available.  In all cases the connector will log its choices.";
 
 	public static final ConfigDef CONFIG_DEF = baseConfigDef();
 
@@ -136,7 +126,7 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 						orderInGroup++, Width.MEDIUM, TOPIC_PREFIX_DISPLAY)
 				.define(PARSE_DML_DATA_CONFIG, Type.BOOLEAN, Importance.MEDIUM, PARSE_DML_DATA_DOC, CONNECTOR_GROUP,
 						orderInGroup++, Width.SHORT, PARSE_DML_DATA_DISPLAY)
-				.define(DB_FETCH_SIZE_CONFIG, Type.LONG, Importance.HIGH, DB_FETCH_SIZE_DOC, DATABASE_GROUP,
+				.define(DB_FETCH_SIZE_CONFIG, Type.INT, Importance.HIGH, DB_FETCH_SIZE_DOC, DATABASE_GROUP,
 						orderInGroup++, Width.SHORT, DB_FETCH_SIZE_DISPLAY)
 				.define(WHITELIST_CONFIG, Type.LIST, Importance.MEDIUM, WHITELIST_DOC, DATABASE_GROUP, orderInGroup++,
 						Width.LONG, WHITELIST_DISPLAY)
@@ -149,10 +139,8 @@ public class LogMinerSourceConnectorConfig extends AbstractConfig {
 
 	private static void initLogMinerConfigGroup(ConfigDef cfg) {
 		int orderInGroup = 0;
-		cfg.define(LOGMINER_DIALECT_CONFIG, Type.STRING, LOGMINER_DIALECT_DEFAULT, Importance.HIGH,
-				LOGMINER_DIALECT_DOC, LOGMINER_GROUP, orderInGroup++, Width.SHORT, LOGMINER_DIALECT_DISPLAY)
-				.define(SEEK_SCN_CONFIG, Type.STRING, Importance.LOW, SEEK_SCN_DOC, LOGMINER_GROUP, orderInGroup++,
-						Width.SHORT, SEEK_SCN_DISPLAY);
+		cfg.define(SEEK_SCN_CONFIG, Type.STRING, Importance.LOW, SEEK_SCN_DOC, LOGMINER_GROUP, orderInGroup++,
+				Width.SHORT, SEEK_SCN_DISPLAY);
 	}
 
 	public LogMinerSourceConnectorConfig(Map<String, ?> props) {

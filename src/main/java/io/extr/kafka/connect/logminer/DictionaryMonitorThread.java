@@ -16,8 +16,6 @@
 
 package io.extr.kafka.connect.logminer;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,27 +28,26 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.extr.kafka.connect.logminer.dialect.LogMinerDialect;
-import io.extr.kafka.connect.logminer.model.TableId;
+import io.extr.kafka.connect.logminer.model.Table;
 
 /**
- * Thread that monitors the database for changes to the set of tables in the
- * database that this connector should produce redo logs for.
+ * Thread that monitors the Oracle dictionary for changes to the set of tables 
+ * that this connector should produce redo log events for.
  */
-public class TableMonitorThread extends Thread {
-	private static final Logger lOGGER = LoggerFactory.getLogger(TableMonitorThread.class);
+public class DictionaryMonitorThread extends Thread {
+	private static final Logger lOGGER = LoggerFactory.getLogger(DictionaryMonitorThread.class);
 
-	private final LogMinerProvider provider;
+	private LogMinerSession session;
 	private final ConnectorContext context;
 	private final CountDownLatch shutdownLatch;
 	private final long pollInterval;
 	private Set<String> whitelist;
 	private Set<String> blacklist;
-	private List<TableId> tables;
+	private List<Table> tables;
 
-	public TableMonitorThread(LogMinerProvider provider, ConnectorContext context, long pollInterval,
+	public DictionaryMonitorThread(LogMinerSession session, ConnectorContext context, long pollInterval,
 			Set<String> whitelist, Set<String> blacklist) {
-		this.provider = provider;
+		this.session = session;
 		this.context = context;
 		this.shutdownLatch = new CountDownLatch(1);
 		this.pollInterval = pollInterval;
@@ -61,7 +58,7 @@ public class TableMonitorThread extends Thread {
 
 	@Override
 	public void run() {
-		lOGGER.info("Starting thread to monitor tables.");
+		lOGGER.info("Starting thread to monitor database tables");
 		while (shutdownLatch.getCount() > 0) {
 			try {
 				if (updateTables()) {
@@ -73,18 +70,18 @@ public class TableMonitorThread extends Thread {
 			}
 
 			try {
-				lOGGER.debug("Waiting {} ms to check for table changes", pollInterval);
+				lOGGER.debug("Waiting {} ms to check for dictionary changes", pollInterval);
 				boolean shuttingDown = shutdownLatch.await(pollInterval, TimeUnit.MILLISECONDS);
 				if (shuttingDown) {
 					return;
 				}
 			} catch (InterruptedException e) {
-				lOGGER.error("Unexpected InterruptedException, ignoring: ", e);
+				lOGGER.warn("Unexpected InterruptedException, ignoring", e);
 			}
 		}
 	}
 
-	public synchronized List<TableId> tables() {
+	public synchronized List<Table> tables() {
 		// TODO: Timeout should probably be user-configurable or class-level constant
 		final long timeout = 10000L;
 		long started = System.currentTimeMillis();
@@ -93,44 +90,42 @@ public class TableMonitorThread extends Thread {
 			try {
 				wait(timeout - (now - started));
 			} catch (InterruptedException e) {
-				// Ignore
+				lOGGER.warn("Unexpected InterruptedException, ignoring", e);
 			}
 			now = System.currentTimeMillis();
 		}
 		if (tables == null) {
-			throw new ConnectException("Tables could not be updated quickly enough.");
+			throw new ConnectException("Tables could not be updated quickly enough");
 		}
 		return tables;
 	}
 
 	public void shutdown() {
-		lOGGER.info("Shutting down thread monitoring tables.");
+		lOGGER.info("Shutting down thread monitoring tables");
+		session.close();
 		shutdownLatch.countDown();
 	}
 
 	private synchronized boolean updateTables() {
-		final List<TableId> tables;
+		final List<Table> tables;
 		try {
-			Connection connection = provider.getConnection();
-			LogMinerDialect dialect = provider.getDialect(connection);
-			tables = dialect.getTables(connection);
-			lOGGER.debug("Got the following tables: " + Arrays.toString(tables.toArray()));
-		} catch (SQLException e) {
+			tables = session.getVisibleTables();
+			lOGGER.trace("Monitor thread found tables: " + Arrays.toString(tables.toArray()));
+		} catch (Exception e) {
 			lOGGER.error("Error while trying to get updated table list, ignoring and waiting for next table poll"
 					+ " interval", e);
-			provider.close();
 			return false;
 		}
 
-		final List<TableId> filteredTables = new ArrayList<>(tables.size());
+		final List<Table> filteredTables = new ArrayList<>(tables.size());
 		if (whitelist != null) {
-			for (TableId table : tables) {
+			for (Table table : tables) {
 				if (table.matches(whitelist)) {
 					filteredTables.add(table);
 				}
 			}
 		} else if (blacklist != null) {
-			for (TableId table : tables) {
+			for (Table table : tables) {
 				if (!table.matches(blacklist)) {
 					filteredTables.add(table);
 				}
@@ -142,8 +137,8 @@ public class TableMonitorThread extends Thread {
 		// TODO: enrich filteredTables with event stats from our own topic
 		
 		if (!filteredTables.equals(this.tables)) {
-			lOGGER.info("After filtering the tables are: {}", filteredTables);
-			List<TableId> previousTables = this.tables;
+			lOGGER.info("Monitor thread filtered tables: {}", filteredTables);
+			List<Table> previousTables = this.tables;
 			this.tables = filteredTables;
 			notifyAll();
 			// Only return true if the table list wasn't previously null, i.e. if this was

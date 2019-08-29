@@ -20,14 +20,14 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 
-import io.extr.kafka.connect.logminer.model.TableId;
+import io.extr.kafka.connect.logminer.model.Table;
 
 public interface LogMinerDialect {
-	public List<TableId> getTables(Connection connection) throws SQLException;
+	public List<Table> getTables(Connection connection) throws SQLException;
 	
 	public enum Statement {
 		START_MINING("start"), STOP_MINING("stop"), CONTENTS("contents"), DICTIONARY("dictionary"), CURRENT_SCN(
-				"current.scn"), LATEST_SCN("latest.scn"), TABLES("tables");
+				"current.scn"), LATEST_SCN("latest.scn"), EARLIEST_SCN("earliest.scn"), TABLES("tables");
 
 		private final String property;
 
@@ -53,6 +53,8 @@ public interface LogMinerDialect {
 				return CURRENT_SCN;
 			case "latest.scn":
 				return LATEST_SCN;
+			case "earliest.scn":
+				return EARLIEST_SCN;
 			case "tables":
 				return TABLES;
 			default:

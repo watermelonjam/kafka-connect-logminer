@@ -48,5 +48,4 @@ WHERE
         2,
         3
     )
-    AND COMMIT_SCN >= ?
-        AND 
+    AND 
