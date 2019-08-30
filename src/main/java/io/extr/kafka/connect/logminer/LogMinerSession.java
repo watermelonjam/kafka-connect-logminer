@@ -58,7 +58,6 @@ public class LogMinerSession implements AutoCloseable {
 	private Map<Table, Schema> schemas = new HashMap<>();
 	private ExecutorService executorService;
 	private FutureTask<Void> miningQueryTask;
-	private FutureTask<Boolean> pollTask;
 
 	private Boolean started;
 
@@ -94,6 +93,7 @@ public class LogMinerSession implements AutoCloseable {
 		executorService.execute(miningQueryTask);
 
 		started = Boolean.TRUE;
+		LOGGER.debug("Log miner session started");
 	}
 
 	public synchronized void close() {
@@ -131,68 +131,44 @@ public class LogMinerSession implements AutoCloseable {
 	}
 
 	public List<LogMinerEvent> poll() throws SQLException {
-		// Create task to poll the rs
-		// Run the task
-		// Get task result via future.get or timeout
-		Callable<Boolean> pollCall = new Callable<Boolean>() {
-			public Boolean call() throws Exception {
-				if (rs == null || rs.isClosed()) {
-					return Boolean.FALSE;
-				}
-				LOGGER.debug("Polling result set");
-				return rs.next();
-			}
-		};
-		pollTask = new FutureTask<Boolean>(pollCall);
-		LOGGER.debug("Scheduling ResultSet poll thread");
-		Future<Boolean> future = executorService.submit(pollTask, Boolean.FALSE);
-
 		List<LogMinerEvent> events = new ArrayList<>();
-		try {
-			while (future.get(500, TimeUnit.MILLISECONDS)) {
-				if (LOGGER.isTraceEnabled()) {
-					logRawMinerData();
-				}
-
-				String redoSQL = rs.getString(LogMinerSourceConnectorConstants.FIELD_SQL_REDO);
-				if (redoSQL.contains(LogMinerSourceConnectorConstants.TEMPORARY_TABLES_PATTERN))
-					continue;
-
-				Boolean continuation = rs.getBoolean(LogMinerSourceConnectorConstants.FIELD_CSF);
-				while (continuation) {
-					rs.next();
-					redoSQL += rs.getString(LogMinerSourceConnectorConstants.FIELD_SQL_REDO);
-					continuation = rs.getBoolean(LogMinerSourceConnectorConstants.FIELD_CSF);
-				}
-
-				String databaseName = rs.getString(LogMinerSourceConnectorConstants.FIELD_SRC_CON_NAME);
-				String ownerName = rs.getString(LogMinerSourceConnectorConstants.FIELD_SEG_OWNER);
-				String tableName = rs.getString(LogMinerSourceConnectorConstants.FIELD_TABLE_NAME);
-
-				LogMinerEvent event = createEvent(new Table(databaseName, ownerName, tableName), redoSQL);
-
-				populateEventField(event, LogMinerSourceConnectorConstants.FIELD_SCN, rs);
-				populateEventField(event, LogMinerSourceConnectorConstants.FIELD_SEG_OWNER, rs);
-				populateEventField(event, LogMinerSourceConnectorConstants.FIELD_TABLE_NAME, rs);
-				populateEventField(event, LogMinerSourceConnectorConstants.FIELD_TIMESTAMP, rs);
-				populateEventField(event, LogMinerSourceConnectorConstants.FIELD_SQL_REDO, rs);
-				populateEventField(event, LogMinerSourceConnectorConstants.FIELD_OPERATION, rs);
-
-				LOGGER.debug("Poll added event: {}", event.toString());
-
-				events.add(event);
+		while (rs != null && rs.next()) {
+			if (LOGGER.isTraceEnabled()) {
+				logRawMinerData();
 			}
-			LOGGER.debug("ResultSet poll thread returned {} events", events.size());
+
+			String redoSQL = rs.getString(LogMinerSourceConnectorConstants.FIELD_SQL_REDO);
+			if (redoSQL.contains(LogMinerSourceConnectorConstants.TEMPORARY_TABLES_PATTERN))
+				continue;
+
+			Boolean continuation = rs.getBoolean(LogMinerSourceConnectorConstants.FIELD_CSF);
+			while (continuation) {
+				rs.next();
+				redoSQL += rs.getString(LogMinerSourceConnectorConstants.FIELD_SQL_REDO);
+				continuation = rs.getBoolean(LogMinerSourceConnectorConstants.FIELD_CSF);
+			}
+
+			String databaseName = rs.getString(LogMinerSourceConnectorConstants.FIELD_SRC_CON_NAME);
+			String ownerName = rs.getString(LogMinerSourceConnectorConstants.FIELD_SEG_OWNER);
+			String tableName = rs.getString(LogMinerSourceConnectorConstants.FIELD_TABLE_NAME);
+
+			LogMinerEvent event = createEvent(new Table(databaseName, ownerName, tableName), redoSQL);
+
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_SCN, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_COMMIT_SCN, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_ROW_ID, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_SEG_OWNER, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_TABLE_NAME, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_TIMESTAMP, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_SQL_REDO, rs);
+			populateEventField(event, LogMinerSourceConnectorConstants.FIELD_OPERATION, rs);
+
+			LOGGER.debug("Poll added event: {}", event.toString());
+			events.add(event);
+			LOGGER.debug("ResultSet simple poll thread returned {} events", events.size());
 			return events;
-		} catch (TimeoutException ex) {
-			LOGGER.debug("ResultSet poll timed out, returning control");
-		} catch (InterruptedException e) {
-			LOGGER.warn("ResultSet poll interrupted", e);
-		} catch (ExecutionException e) {
-			LOGGER.error("ResultSet poll error", e);
-		} finally {
-			future.cancel(true);
 		}
+		
 		return null;
 	}
 
@@ -439,6 +415,8 @@ public class LogMinerSession implements AutoCloseable {
 		Schema eventSchema = SchemaBuilder.struct()
 				.name(table.getQName() + LogMinerSourceConnectorConstants.EVENT_SCHEMA_QUALIFIER)
 				.field(LogMinerSourceConnectorConstants.FIELD_SCN, Schema.INT64_SCHEMA)
+				.field(LogMinerSourceConnectorConstants.FIELD_COMMIT_SCN, Schema.INT64_SCHEMA)
+				.field(LogMinerSourceConnectorConstants.FIELD_ROW_ID, Schema.STRING_SCHEMA)
 				.field(LogMinerSourceConnectorConstants.FIELD_SEG_OWNER, Schema.STRING_SCHEMA)
 				.field(LogMinerSourceConnectorConstants.FIELD_TABLE_NAME, Schema.STRING_SCHEMA)
 				.field(LogMinerSourceConnectorConstants.FIELD_TIMESTAMP, org.apache.kafka.connect.data.Timestamp.SCHEMA)

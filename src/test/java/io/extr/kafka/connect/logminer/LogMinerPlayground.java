@@ -66,11 +66,15 @@ public class LogMinerPlayground {
 
 			while (true) {
 				List<LogMinerEvent> events = session.poll();
-				List<SourceRecord> records = events.stream()
-						.map(e -> new SourceRecord(e.getPartition(), e.getOffset(),
-								config.getString(LogMinerSourceTaskConfig.TOPIC_CONFIG), e.getSchema(), e.getStruct()))
-						.collect(Collectors.toList());
-				LOGGER.trace("Cooked up {} records for Kafka", records.size());
+				if (events != null) {
+					List<SourceRecord> records = events.stream().map(e -> {
+						SourceRecord r = new SourceRecord(e.getPartition(), e.getOffset(),
+								config.getString(LogMinerSourceTaskConfig.TOPIC_CONFIG), e.getSchema(), e.getStruct());
+						LOGGER.debug("Event to source record {}", r.toString());
+						return r;
+					}).collect(Collectors.toList());
+					LOGGER.debug("Cooked up {} records for Kafka", records.size());
+				}
 				Thread.sleep(1000);
 			}
 		}

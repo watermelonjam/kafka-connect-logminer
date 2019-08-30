@@ -31,7 +31,8 @@ public class LogMinerEvent {
 				struct.getInt64(LogMinerSourceConnectorConstants.FIELD_COMMIT_SCN),
 				struct.getString(LogMinerSourceConnectorConstants.FIELD_ROW_ID),
 				Timestamp.toLogical(struct.schema().field(LogMinerSourceConnectorConstants.FIELD_TIMESTAMP).schema(),
-						(Long) struct.getInt64(LogMinerSourceConnectorConstants.FIELD_TIMESTAMP))).toMap();
+						((java.sql.Timestamp) struct.get(LogMinerSourceConnectorConstants.FIELD_TIMESTAMP)).getTime()))
+								.toMap();
 	}
 
 	public Map<String, String> getPartition() {
