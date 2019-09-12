@@ -101,10 +101,12 @@ public class LogMinerSession implements AutoCloseable {
 			if (started) {
 				LOGGER.info("Stopping log miner session");
 
-				if (miningQueryTask != null && !miningQueryTask.isCancelled()) {
+				if (miningQueryTask != null && !miningQueryTask.isDone()) {
 					LOGGER.debug("Shutting down query thread");
 					miningQueryTask.cancel(true);
 				}
+
+				LOGGER.debug("Closing session JDBC resources");
 				rs.close();
 
 				miningQuery.cancel();
@@ -117,6 +119,7 @@ public class LogMinerSession implements AutoCloseable {
 						.prepareCall(getDialect().getStatement(LogMinerDialect.Statement.STOP_MINING));
 				s.execute();
 				s.close();
+				LOGGER.debug("Log miner session ended");
 			}
 
 			if (connection != null) {
